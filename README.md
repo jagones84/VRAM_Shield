@@ -43,6 +43,14 @@ sudo ./run_guard.sh --threshold 80000
 ```
 *Terminates any process using more than 80,000 MB (80 GB).*
 
+### 3. Stopping the Monitor
+To stop the VRAM Shield, you can simply press `Ctrl+C` if it's running in your terminal.
+
+If you ran it in the background (e.g., with `&` or via a service), use the included helper script:
+```bash
+sudo ./stop_guard.sh
+```
+
 ### Options
 
 | Flag | Description | Default |
