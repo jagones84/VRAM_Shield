@@ -47,6 +47,15 @@ This project uses a virtual environment to manage dependencies safely.
 
     *Check status after installation via `systemctl status vram_guard`.*
 
+4. **Test the Guard**:
+    Run a simulation to verify the kill trigger:
+
+    ```bash
+    ./venv/bin/python3 ./tests/test_alloc.py
+    ```
+
+    *Check `vram_guard.log` or the console output to see the ALERT and KILL messages.*
+
 ## Manual Usage (Without SystemD)
 
 You can use the provided wrapper scripts to control the monitor manually. Dependencies (`nvidia-ml-py`, `psutil`, `PyYAML`, `python-dotenv`) are installed automatically on the first run.

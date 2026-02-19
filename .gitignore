@@ -1,6 +1,11 @@
+# System & Logs
+*.log
+.vram_guard.pid
 venv/
 __pycache__/
 *.pyc
+
+# IDEs
 .DS_Store
 .idea/
 .vscode/
