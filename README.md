@@ -48,10 +48,25 @@ sudo ./run_guard.sh --threshold 80000
 | Flag | Description | Default |
 | :--- | :--- | :--- |
 | `--threshold <MB>` | **Required**. The memory limit in Megabytes. | N/A |
+| `--mode <MODE>` | `process` (limit per process) or `total` (limit total system VRAM). | `process` |
 | `--interval <SEC>` | Monitoring interval in seconds. | `1.0` |
 | `--dry-run` | Monitor only; do not kill processes. | `False` |
 | `--gpu <ID>` | GPU index to monitor. | `0` |
 | `--whitelist <NAMES>` | List of process names to ignore. | `Xorg gnome-shell` |
+
+## Protection Modes
+
+### Process Mode (Default)
+`--mode process`
+Terminates any *single process* that exceeds the threshold.
+- **Best for:** Preventing one runaway script from eating all memory.
+- **Example:** "Kill any script larger than 40GB."
+
+### Total Mode (Recommended for GB10)
+`--mode total`
+Terminates the largest non-whitelisted process if the *sum of all processes* exceeds the threshold.
+- **Best for:** Preventing System OOM (Out of Memory) crashes on Unified Memory systems.
+- **Example:** "If total VRAM usage > 110GB, kill the biggest job to save the system."
 
 ## Why is this needed for GB10 (Grace Blackwell)?
 

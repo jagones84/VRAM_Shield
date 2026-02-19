@@ -43,7 +43,7 @@ def kill_process(pid, name, dry_run=False):
     except ProcessLookupError:
         print(f"Process {pid} already exited.")
 
-def monitor_vram(threshold_mb, interval=1.0, gpu_index=0, dry_run=False, whitelist=None):
+def monitor_vram(threshold_mb, interval=1.0, gpu_index=0, dry_run=False, whitelist=None, mode="process"):
     """Monitor VRAM and enforce threshold."""
     if whitelist is None:
         whitelist = []
@@ -67,10 +67,13 @@ def monitor_vram(threshold_mb, interval=1.0, gpu_index=0, dry_run=False, whiteli
             print("Total VRAM: Unknown (Unified Memory / Not Supported)")
             print("Mode: Per-process monitoring only (sum of process usage)")
 
-        print(f"Threshold: {threshold_mb} MB (per process)")
+        print(f"Threshold: {threshold_mb} MB")
+        print(f"Mode: {mode.upper()} protection")
         print(f"Interval: {interval}s")
         if dry_run:
             print("Mode: DRY RUN (No processes will be killed)")
+        
+        print("-" * 50)
 
         while True:
             # Get running processes on GPU first
@@ -89,37 +92,54 @@ def monitor_vram(threshold_mb, interval=1.0, gpu_index=0, dry_run=False, whiteli
             unique_procs = {p.pid: p for p in procs}.values()
 
             # Calculate total used memory from processes if global info fails
-            total_proc_mem_mb = sum(p.usedGpuMemory for p in unique_procs if p.usedGpuMemory) / 1024 / 1024
+            # We use this as the primary metric for "Total" mode on GB10
+            current_usage_mb = sum(p.usedGpuMemory for p in unique_procs if p.usedGpuMemory) / 1024 / 1024
 
-            # Get global memory info
-            try:
-                mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-                used_mb = mem_info.used / 1024 / 1024
-                total_mb = mem_info.total / 1024 / 1024
-            except pynvml.NVMLError:
-                # Fallback for Grace/Unified memory where global info might not be supported
-                used_mb = total_proc_mem_mb
-                total_mb = 0 # Unknown
+            timestamp = datetime.now().strftime("%H:%M:%S")
 
-            # Check per-process usage against threshold
-            for p in unique_procs:
-                if p.usedGpuMemory is None:
-                    continue
-                
-                proc_mem_mb = p.usedGpuMemory / 1024 / 1024
-                proc_name = get_process_name(p.pid)
-                
-                # Check if process exceeds threshold
-                if proc_mem_mb > threshold_mb:
-                    is_whitelisted = any(w in proc_name for w in whitelist)
+            if mode == "total":
+                # TOTAL MODE: Check if sum of all processes exceeds threshold
+                if current_usage_mb > threshold_mb:
+                    print(f"[{timestamp}] ALERT: Total System VRAM ({current_usage_mb:.1f} MB) > Threshold ({threshold_mb} MB)")
                     
-                    timestamp = datetime.now().strftime("%H:%M:%S")
-                    print(f"[{timestamp}] ALERT: Process '{proc_name}' (PID: {p.pid}) using {proc_mem_mb:.1f} MB (Threshold: {threshold_mb} MB)")
+                    # Find the largest non-whitelisted process to kill
+                    candidates = []
+                    for p in unique_procs:
+                        if p.usedGpuMemory is None: continue
+                        name = get_process_name(p.pid)
+                        if not any(w in name for w in whitelist):
+                            candidates.append((p.usedGpuMemory, p.pid, name))
                     
-                    if not is_whitelisted:
-                        kill_process(p.pid, proc_name, dry_run)
+                    if candidates:
+                        # Sort by memory usage (descending)
+                        candidates.sort(key=lambda x: x[0], reverse=True)
+                        victim_mem, victim_pid, victim_name = candidates[0]
+                        victim_mem_mb = victim_mem / 1024 / 1024
+                        
+                        print(f"[{timestamp}] ACTION: Killing largest process '{victim_name}' (PID: {victim_pid}) using {victim_mem_mb:.1f} MB")
+                        kill_process(victim_pid, victim_name, dry_run)
                     else:
-                        print(f"Process '{proc_name}' is whitelisted. Skipping.")
+                        print(f"[{timestamp}] WARNING: Threshold exceeded but all processes are whitelisted!")
+
+            else:
+                # PROCESS MODE: Check each process individually
+                for p in unique_procs:
+                    if p.usedGpuMemory is None:
+                        continue
+                    
+                    proc_mem_mb = p.usedGpuMemory / 1024 / 1024
+                    proc_name = get_process_name(p.pid)
+                    
+                    # Check if process exceeds threshold
+                    if proc_mem_mb > threshold_mb:
+                        is_whitelisted = any(w in proc_name for w in whitelist)
+                        
+                        print(f"[{timestamp}] ALERT: Process '{proc_name}' (PID: {p.pid}) using {proc_mem_mb:.1f} MB (Threshold: {threshold_mb} MB)")
+                        
+                        if not is_whitelisted:
+                            kill_process(p.pid, proc_name, dry_run)
+                        else:
+                            print(f"Process '{proc_name}' is whitelisted. Skipping.")
 
             time.sleep(interval)
 
@@ -132,7 +152,8 @@ def monitor_vram(threshold_mb, interval=1.0, gpu_index=0, dry_run=False, whiteli
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Monitor and protect NVIDIA GPU VRAM.")
-    parser.add_argument("--threshold", type=int, required=True, help="VRAM limit in MB to trigger action")
+    parser.add_argument("--threshold", type=int, required=True, help="Limit in MB. In 'process' mode: per-process limit. In 'total' mode: system-wide limit.")
+    parser.add_argument("--mode", choices=["process", "total"], default="process", help="Protection mode. 'process' kills any single process > threshold. 'total' kills largest process if system sum > threshold.")
     parser.add_argument("--interval", type=float, default=1.0, help="Monitoring interval in seconds")
     parser.add_argument("--gpu", type=int, default=0, help="GPU index to monitor (default 0)")
     parser.add_argument("--dry-run", action="store_true", help="Monitor only, do not kill processes")
@@ -140,4 +161,4 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    monitor_vram(args.threshold, args.interval, args.gpu, args.dry_run, args.whitelist)
+    monitor_vram(args.threshold, args.interval, args.gpu, args.dry_run, args.whitelist, args.mode)
