@@ -1,0 +1,21 @@
+# Default VRAM Threshold in Megabytes (MB)
+# Example: 126 GB = 126000 MB
+threshold: 126000
+
+# How often to check VRAM (in seconds)
+interval: 1.0
+
+# GPU Index to monitor (usually 0)
+gpu_index: 0
+
+# Test mode (True = only log without killing processes)
+dry_run: false
+
+# Protected Process IDs - these will NEVER be killed
+whitelist_pids:
+  - 1
+
+# Monitoring Mode
+#   PROCESS - Kills specific processes exceeding the total
+#   SYSTEM - (Alternative, legacy implementation if any)
+mode: "PROCESS"

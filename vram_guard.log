@@ -1,0 +1,17 @@
+Monitoring GPU 0: NVIDIA GB10
+Total VRAM: Unknown (Unified Memory / Not Supported)
+Mode: Per-process monitoring only (sum of process usage)
+Threshold: 20000 MB
+Mode: PROCESS protection
+Interval: 1.0s
+--------------------------------------------------
+[23:20:56] ALERT: Process 'gpu_burn' (PID: 194545) using 37046.5 MB (Threshold: 20000 MB)
+!!! KILLING process gpu_burn (PID: 194545) !!!
+Process 194545 terminated instantly.
+Monitoring GPU 0: NVIDIA GB10
+Total VRAM: Unknown (Unified Memory / Not Supported)
+Mode: Per-process monitoring only (sum of process usage)
+Threshold: 126000 MB
+Mode: PROCESS protection
+Interval: 1.0s
+--------------------------------------------------
