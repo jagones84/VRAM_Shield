@@ -3,6 +3,7 @@ import sys
 import os
 import signal
 import argparse
+import platform
 from datetime import datetime
 
 # Try to import pynvml and psutil, provide instructions if missing
@@ -58,10 +59,57 @@ def kill_process(pid, process_name):
     """Forcefully and instantly kill a process using SIGKILL."""
     print(f"!!! KILLING process {process_name} (PID: {pid}) !!!")
     try:
-        os.kill(pid, signal.SIGKILL)
+        if platform.system() == "Windows":
+            os.kill(pid, signal.SIGTERM) # Windows doesn't have SIGKILL
+        else:
+            os.kill(pid, signal.SIGKILL)
         print(f"Process {pid} terminated instantly.")
     except Exception as e:
         print(f"Failed to kill process {pid}: {e}")
+
+def setup_autostart():
+    """Configure cross-platform autostart based on OS."""
+    os_name = platform.system()
+    app_name = "VRAMGuard"
+    script_path = os.path.abspath(__file__)
+    
+    if os_name == "Windows":
+        try:
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
+            # Run hidden in background on Windows
+            cmd = f'pythonw.exe "{script_path}"'
+            winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, cmd)
+            winreg.CloseKey(key)
+            print("Windows Autostart configured in Registry.")
+        except Exception as e:
+            print(f"Failed to set Windows autostart: {e}")
+            
+    elif os_name == "Linux":
+        # Systemd is preferred for servers, but we can set up .desktop for user UI autostart
+        autostart_dir = os.path.expanduser("~/.config/autostart")
+        if os.path.exists(autostart_dir):
+            desktop_file = os.path.join(autostart_dir, "vram_guard.desktop")
+            wrapper_script = os.path.join(os.path.dirname(os.path.dirname(script_path)), "scripts", "run_guard.sh")
+            if os.path.exists(wrapper_script):
+                content = f"""[Desktop Entry]
+Type=Application
+Exec={wrapper_script} --background
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name[en_US]=VRAM Guard
+Name=VRAM Guard
+Comment=NVIDIA VRAM Protection
+"""
+                try:
+                    with open(desktop_file, "w") as f:
+                        f.write(content)
+                    print("Linux .desktop Autostart configured successfully.")
+                except Exception as e:
+                    print(f"Failed to write .desktop file: {e}")
+    else:
+        print(f"Autostart not supported on {os_name}")
 
 def monitor_vram():
     """Monitor VRAM usage based on config.yaml."""
@@ -80,6 +128,10 @@ def monitor_vram():
     dry_run = config.get('dry_run', False)
     whitelist = config.get('whitelist_pids', [])
     mode = config.get('mode', 'PROCESS')
+    autostart = config.get('autostart', False)
+    
+    if autostart:
+        setup_autostart()
     
     # Load environment variables (optional, for future extensions)
     dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
@@ -116,30 +168,52 @@ def monitor_vram():
             try:
                 processes = pynvml.nvmlDeviceGetComputeRunningProcesses(handle)
                 
-                # Check for individual memory spikes
+                # Check for memory spikes
                 total_used = 0
+                max_vram_proc = None
+                max_vram_usage = 0
+                max_vram_name = ""
+                
                 for proc in processes:
                     if proc.pid in whitelist:
                         continue
                         
                     proc_name = get_process_name(proc.pid)
                     
-                    # Unified memory workaround
-                    if proc.usedGpuMemory is None or proc.usedGpuMemory == 0:
-                        vram_used = get_process_vms_mb(proc.pid)
-                    else:
-                        vram_used = proc.usedGpuMemory / (1024 * 1024)
+                    vms_val = get_process_vms_mb(proc.pid)
+                    nvml_val = (proc.usedGpuMemory or 0) / (1024 * 1024)
+                    
+                    # On GB10 Unified Memory, NVML might report 0 or small values.
+                    # VMS catches the virtual allocation instantly. We take the max.
+                    vram_used = max(vms_val, nvml_val)
                         
                     total_used += vram_used
+                    
+                    # Keep track of largest process for SYSTEM mode
+                    if vram_used > max_vram_usage:
+                        max_vram_usage = vram_used
+                        max_vram_proc = proc.pid
+                        max_vram_name = proc_name
                         
-                    if vram_used > threshold:
-                        timestamp = time.strftime("%H:%M:%S")
-                        print(f"[{timestamp}] ALERT: Process '{proc_name}' (PID: {proc.pid}) using {vram_used:.1f} MB (Threshold: {threshold} MB)")
-                        if not dry_run:
-                            kill_process(proc.pid, proc_name)
-                            time.sleep(1) # Let system recover before checking again
+                    # PROCESS mode logic
+                    if mode.upper() == "PROCESS":
+                        if vram_used > threshold:
+                            timestamp = time.strftime("%H:%M:%S")
+                            print(f"[{timestamp}] ALERT: Process '{proc_name}' (PID: {proc.pid}) using {vram_used:.1f} MB (Threshold: {threshold} MB)")
+                            if not dry_run:
+                                kill_process(proc.pid, proc_name)
+                                time.sleep(1) # Let system recover before checking again
                 
-                # Optional: Handle total usage logic here if needed
+                # SYSTEM mode logic
+                if mode.upper() == "SYSTEM":
+                    if total_used > threshold and max_vram_proc is not None:
+                        timestamp = time.strftime("%H:%M:%S")
+                        print(f"[{timestamp}] SYSTEM ALERT: Total VRAM {total_used:.1f} MB exceeds {threshold} MB limit!")
+                        print(f"[{timestamp}] Killing top consumer '{max_vram_name}' (PID: {max_vram_proc}) using {max_vram_usage:.1f} MB")
+                        if not dry_run:
+                            kill_process(max_vram_proc, max_vram_name)
+                            time.sleep(1)
+                            
             except pynvml.NVMLError as err:
                 print(f"NVML Error: {err}")
             

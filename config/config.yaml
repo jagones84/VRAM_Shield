@@ -17,5 +17,8 @@ whitelist_pids:
 
 # Monitoring Mode
 #   PROCESS - Kills specific processes exceeding the total
-#   SYSTEM - (Alternative, legacy implementation if any)
-mode: "PROCESS"
+#   SYSTEM - Kills the largest process if total system VRAM usage exceeds threshold
+mode: "SYSTEM"
+
+# Enable automatic startup on boot (Windows / Linux)
+autostart: true

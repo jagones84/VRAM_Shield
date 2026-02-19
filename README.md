@@ -33,7 +33,10 @@ This project uses a virtual environment to manage dependencies safely.
     whitelist_pids:
       - 1
     mode: "PROCESS"
+    autostart: true
     ```
+
+    *Setting `autostart: true` will automatically configure VRAM Guard to run at startup for your user via Windows Registry (`HKCU\...\Run`) or Linux Desktop (`~/.config/autostart`).*
 
 3. **Install as a SystemD Service (Recommended)**:
     For continuous background protection running on startup:
@@ -76,7 +79,23 @@ To stop the VRAM Shield gracefully:
 ./scripts/stop_guard.sh
 ```
 
-## Why is this needed for GB10 (Grace Blackwell)?
+## Protection Modes
+
+### Process Mode (Default)
+
+`mode: "PROCESS"`
+Terminates any *single process* that individually exceeds the threshold.
+
+- **Best for:** Preventing one runaway script from eating all memory.
+- **Example:** "Kill any single script larger than 126GB."
+
+### System Mode (New Overload Protection)
+
+`mode: "SYSTEM"`
+Terminates the largest non-whitelisted process if the *sum of all processes* exceeds the threshold.
+
+- **Best for:** Preventing System OOM on Unified Memory systems when running many small programs.
+- **Example:** "If total VRAM usage across all apps > 126GB, kill the biggest job to save the entire server."
 
 The NVIDIA GB10 chip uses **Unified Memory**, sharing 128GB of LPDDR5X between the ARM CPU and the Blackwell GPU.
 
