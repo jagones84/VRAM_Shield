@@ -23,9 +23,9 @@ fi
 # Run the script
 # If --background is passed, run in background and redirect to log
 if [[ "$*" == *"--background"* ]]; then
-    echo "Starting VRAM Shield in background... logs at $DIR/../vram_guard.log"
-    nohup "$VENV_DIR/bin/python3" -u "$SCRIPT_PATH" >> "$DIR/../vram_guard.log" 2>&1 &
+    echo "Starting VRAM Shield in background... logs at $DIR/../output.log"
+    nohup "$VENV_DIR/bin/python3" -u "$SCRIPT_PATH" >> "$DIR/../output.log" 2>&1 &
 else
     # Run in foreground
-    "$VENV_DIR/bin/python3" "$SCRIPT_PATH"
+    "$VENV_DIR/bin/python3" -u "$SCRIPT_PATH"
 fi

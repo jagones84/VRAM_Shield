@@ -2,7 +2,7 @@
 # Check the status of VRAM Shield
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-LOG_FILE="$DIR/../vram_guard.log"
+LOG_FILE="$DIR/../output.log"
 PID_FILE="$DIR/../.vram_guard.pid"
 
 # Try to get PID from pid file
