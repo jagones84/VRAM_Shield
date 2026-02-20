@@ -86,28 +86,40 @@ def setup_autostart():
             print(f"Failed to set Windows autostart: {e}")
             
     elif os_name == "Linux":
-        # Systemd is preferred for servers, but we can set up .desktop for user UI autostart
-        autostart_dir = os.path.expanduser("~/.config/autostart")
-        if os.path.exists(autostart_dir):
-            desktop_file = os.path.join(autostart_dir, "vram_guard.desktop")
-            wrapper_script = os.path.join(os.path.dirname(os.path.dirname(script_path)), "scripts", "run_guard.sh")
-            if os.path.exists(wrapper_script):
-                content = f"""[Desktop Entry]
-Type=Application
-Exec={wrapper_script} --background
-Hidden=false
-NoDisplay=false
-X-GNOME-Autostart-enabled=true
-Name[en_US]=VRAM Guard
-Name=VRAM Guard
-Comment=NVIDIA VRAM Protection
+        import subprocess
+        # Use systemd user service for reliable autostart (headless or GUI)
+        systemd_user_dir = os.path.expanduser("~/.config/systemd/user")
+        os.makedirs(systemd_user_dir, exist_ok=True)
+        
+        service_file = os.path.join(systemd_user_dir, "vram_guard.service")
+        wrapper_script = os.path.join(os.path.dirname(os.path.dirname(script_path)), "scripts", "run_guard.sh")
+        
+        if os.path.exists(wrapper_script):
+            content = f"""[Unit]
+Description=VRAM Guard - NVIDIA Memory Protection (User Service)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={wrapper_script}
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
 """
-                try:
-                    with open(desktop_file, "w") as f:
-                        f.write(content)
-                    print("Linux .desktop Autostart configured successfully.")
-                except Exception as e:
-                    print(f"Failed to write .desktop file: {e}")
+            try:
+                with open(service_file, "w") as f:
+                    f.write(content)
+                
+                # Enable the service
+                subprocess.run(["systemctl", "--user", "daemon-reload"], check=True, capture_output=True)
+                subprocess.run(["systemctl", "--user", "enable", "vram_guard.service"], check=True, capture_output=True)
+                
+                print("Linux systemd user service autostart configured successfully.")
+                print("Tip: Run 'sudo loginctl enable-linger $USER' to ensure it starts on boot without logging in.")
+            except Exception as e:
+                print(f"Failed to set up Linux autostart: {e}")
     else:
         print(f"Autostart not supported on {os_name}")
 
