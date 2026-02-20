@@ -10,7 +10,15 @@ SCRIPT_PATH="$DIR/../src/vram_guard.py"
 if [ ! -d "$VENV_DIR" ]; then
     echo "Virtual environment not found. Creating..."
     python3 -m venv "$VENV_DIR"
-    "$VENV_DIR/bin/pip" install nvidia-ml-py psutil PyYAML python-dotenv
+    
+    # Install dependencies
+    if [ -f "$DIR/../requirements.txt" ]; then
+        echo "Installing dependencies from requirements.txt..."
+        "$VENV_DIR/bin/pip" install -r "$DIR/../requirements.txt"
+    else
+        echo "Installing default dependencies..."
+        "$VENV_DIR/bin/pip" install nvidia-ml-py psutil PyYAML python-dotenv
+    fi
 fi
 
 # Ensure no other instances are running

@@ -3,6 +3,15 @@
 
 echo "Stopping VRAM Shield..."
 
+# Check and stop systemd service if active
+# Skip if running within systemd (to avoid suicide loop when called by run_guard.sh)
+if [ -z "$INVOCATION_ID" ] && command -v systemctl >/dev/null 2>&1 && systemctl --user is-active --quiet vram_guard.service; then
+    echo "Stopping systemd service..."
+    systemctl --user stop vram_guard.service
+    # Give it a moment to stop
+    sleep 2
+fi
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PID_FILE="$DIR/../.vram_guard.pid"
 

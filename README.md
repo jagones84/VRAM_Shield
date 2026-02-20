@@ -1,125 +1,116 @@
-# VRAM Shield
+# 🛡️ VRAM Shield
 
-**VRAM Shield** is a lightweight Python tool designed to monitor and protect NVIDIA GPU memory usage. It is particularly optimized for the **NVIDIA GB10 Grace Blackwell** superchip (and other Unified Memory architectures), where traditional VRAM monitoring tools may fail or report misleading global statistics.
+**VRAM Shield** is a lightweight, high-performance Python tool designed to monitor and protect NVIDIA GPU memory usage. It is specifically optimized for **Unified Memory Architectures** (like NVIDIA Grace Hopper/Blackwell), where traditional VRAM monitoring can be misleading.
 
-## Features
+It acts as a watchdog, automatically terminating processes that exceed safe memory thresholds to prevent system lockups or OOM (Out-of-Memory) crashes.
 
-- **Real-time Monitoring**: Tracks GPU memory usage per process.
-- **Aggressive Out-of-Memory (OOM) Protection**: Automatically and instantly terminates processes (with `SIGKILL`) that exceed a user-defined memory threshold, preventing total system lockups on Unified Memory platforms.
-- **Grace Blackwell Support**: Calculates RSS System Memory footprint when NVIDIA NVML drivers report 0 MB usage for compute processes in Unified Memory.
-- **Auto-Startup Service**: Can be installed as a SystemD background daemon that protects your hardware continuously on boot.
-- **Configuration File**: Easy-to-manage `config.yaml` with adjustable thresholds and whitelist capabilities.
+---
 
-## Installation
+## ✨ Features
 
-This project uses a virtual environment to manage dependencies safely.
+- **🚀 Unified Memory Support**: Intelligent handling of System RAM + VRAM accounting for Grace Hopper/Blackwell chips.
+- **⚡ Zero-Latency Protection**: Instantly terminates (`SIGKILL`) processes exceeding defined thresholds.
+- **🧠 Dynamic Baseline Calibration**: Automatically detects and offsets system-reserved memory for precise triggering.
+- **🔄 Systemd Integration**: Runs as a persistent user service with auto-restart capabilities.
+- **📊 Real-time Status**: Simple CLI tools to check status and logs.
 
-1. **Clone the repository**:
+---
 
-    ```bash
-    git clone https://github.com/your-username/VRAM_shield.git
-    cd VRAM_shield
-    ```
+## 🛠️ Installation
 
-2. **Configure the Shield**:
-    Open `config/config.yaml` to set your desired memory limits.
-    The default threshold is **126,000 MB (126 GB)**.
-
-    ```yaml
-    threshold: 126000
-    interval: 1.0
-    gpu_index: 0
-    dry_run: false
-    whitelist_pids:
-      - 1
-    mode: "PROCESS"
-    autostart: true
-    ```
-
-    *Setting `autostart: true` will automatically configure VRAM Guard to run at startup for your user via Windows Registry (`HKCU\...\Run`) or Linux Desktop (`~/.config/autostart`).*
-
-3. **Install as a SystemD Service (Recommended)**:
-    For continuous background protection running on startup:
-
-    ```bash
-    sudo ./scripts/install_service.sh
-    ```
-
-    *Check status after installation via `systemctl status vram_guard`.*
-
-4. **Test the Guard**:
-    Run a simulation to verify the kill trigger:
-
-    ```bash
-    ./venv/bin/python3 ./tests/test_alloc.py
-    ```
-
-    *Check `vram_guard.log` or the console output to see the ALERT and KILL messages.*
-
-## Manual Usage (Without SystemD)
-
-You can use the provided wrapper scripts to control the monitor manually. Dependencies (`nvidia-ml-py`, `psutil`, `PyYAML`, `python-dotenv`) are installed automatically on the first run.
-
-### 1. Start the Monitor
-
+### 1. Clone the Repository
 ```bash
-# Run in the foreground:
-./scripts/run_guard.sh
-
-# Or, run in the background (logs to vram_guard.log):
-./scripts/run_guard.sh --background
+git clone https://github.com/your-username/VRAM_shield.git
+cd VRAM_shield
 ```
 
-*Note: VRAM Shield guarantees that only 1 instance can run at a time. Launching it again will automatically stop the old instance.*
+### 2. Run the Installer
+The included script sets up the virtual environment and installs dependencies automatically.
+```bash
+./scripts/run_guard.sh
+```
+*(The first run will take a moment to set up `venv`)*
 
-### 2. Checking Status
+---
 
-To check if the VRAM Shield is running and view its logs, run:
+## ⚙️ Configuration
 
+Edit `config/config.yaml` to customize behavior.
+
+```yaml
+threshold: 35000       # Memory limit in MB (e.g., 35 GB)
+mode: "SYSTEM"         # "SYSTEM" (Total Memory) or "PROCESS" (Per-Process)
+interval: 0.1          # Monitoring frequency in seconds
+autostart: true        # Enable auto-start on boot
+whitelist_pids:        # PIDs to ignore (e.g., system processes)
+  - 1
+```
+
+---
+
+## 🖥️ Usage
+
+### Start / Restart
+```bash
+./scripts/run_guard.sh
+```
+*Starts the shield. If configured, it also enables the Systemd service.*
+
+### Check Status
 ```bash
 ./scripts/status_guard.sh
 ```
+*Shows if the shield is **ACTIVE (PROTECTED)** or **STOPPED**, along with recent logs.*
 
-### 3. Stopping the Monitor
-
-To stop the VRAM Shield gracefully:
-
+### Stop
 ```bash
 ./scripts/stop_guard.sh
 ```
+*Stops the background process and disables the auto-restart service.*
 
-## Protection Modes
+---
 
-### Process Mode (Default)
+## 🧪 Testing & Verification
 
-`mode: "PROCESS"`
-Terminates any *single process* that individually exceeds the threshold.
+To verify the Shield's functionality, we recommend using **gpu-burn** to generate artificial VRAM load.
 
-- **Best for:** Preventing one runaway script from eating all memory.
-- **Example:** "Kill any single script larger than 126GB."
+### 1. Install `gpu-burn`
+If you don't have it already, clone and build the standard benchmarking tool:
 
-### System Mode (New Overload Protection)
+```bash
+git clone https://github.com/wilicc/gpu-burn.git
+cd gpu-burn
+make
+```
+*(Requires CUDA Toolkit to be installed)*
 
-`mode: "SYSTEM"`
-Terminates the largest non-whitelisted process if the *sum of all processes* exceeds the threshold.
+### 2. Run a Verification Test
+We provide scripts to safely test the trigger threshold without crashing your system.
 
-- **Best for:** Preventing System OOM on Unified Memory systems when running many small programs.
-- **Example:** "If total VRAM usage across all apps > 126GB, kill the biggest job to save the entire server."
+**Ramp-Up Test (Recommended):**
+This script incrementally loads VRAM to pinpoint exactly when the Shield triggers.
 
-The NVIDIA GB10 chip uses **Unified Memory**, sharing 128GB of LPDDR5X between the ARM CPU and the Blackwell GPU.
+```bash
+# Run using the project's virtual environment
+./venv/bin/python3 tests/ramp_up_test.py
+```
 
-- **Standard Tools Fail**: Traditional tools like `nvidia-smi` often report "Not Supported" for global VRAM usage because there is no distinct "Video RAM" capacity. Furthermore, compute tasks may appear to allocate `0 MB` of GPU memory.
-- **OOM Danger**: If a process consumes all available memory, the Linux kernel's OOM (Out of Memory) killer will indiscriminately terminate processes to save the system, which can crash your desktop or critical services.
-- **VRAM Shield Solution**: This tool calculates process memory usage using fallback OS mechanisms (RSS footprint) when NVML fails, providing a reliable metric. It allows you to set a "safety buffer" (e.g., kill at 126GB) to forcefully prevent a full system OOM crash.
+**Manual Load Test:**
+You can also run `gpu-burn` directly with a specific memory target to test the limit:
 
-## Folder Structure
+```bash
+# Example: Load 27 GB (should trigger if threshold is 25 GB)
+./gpu_burn 27000
+```
 
-- `src/vram_guard.py` - Main execution loop and monitoring logic.
-- `scripts/` - Bash wrappers for starting, stopping, checking status, and installing the system service.
-- `config/config.yaml` - User configuration.
-- `venv/` - (Auto-generated) Isolated Python environment.
+---
 
-## Requirements
+## 🔧 Systemd Service (Auto-Start)
 
-- Python 3
-- NVIDIA Drivers Supported by `pynvml`
+The Shield is designed to run as a **Systemd User Service**.
+
+- **Enable/Start**: `systemctl --user enable --now vram_guard.service`
+- **Check Logs**: `journalctl --user -u vram_guard -f`
+- **Restart**: `systemctl --user restart vram_guard.service`
+
+*Note: The `run_guard.sh` script handles this automatically for you.*

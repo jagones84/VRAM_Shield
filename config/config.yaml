@@ -1,9 +1,10 @@
 # Default VRAM Threshold in Megabytes (MB)
-# Example: 126 GB = 126000 MB
-threshold: 126000
+# Example: 118 GB = 118000 MB (Leaving ~3GB safety margin for OS)
+threshold: 122000
+# threshold: 35000
 
 # How often to check VRAM (in seconds)
-interval: 1.0
+interval: 0.5
 
 # GPU Index to monitor (usually 0)
 gpu_index: 0
