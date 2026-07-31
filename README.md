@@ -1,4 +1,4 @@
-# 🛡️ VRAM Shield
+# VRAM Shield
 
 **VRAM Shield** is a lightweight, high-performance Python tool designed to monitor and protect NVIDIA GPU memory usage. It is specifically optimized for **Unified Memory Architectures** (like NVIDIA Grace Hopper/Blackwell), where traditional VRAM monitoring can be misleading.
 
@@ -6,22 +6,22 @@ It acts as a watchdog, automatically terminating processes that exceed safe memo
 
 ---
 
-## ✨ Features
+## Features
 
-- **🚀 Unified Memory Support**: Intelligent handling of System RAM + VRAM accounting for Grace Hopper/Blackwell chips.
-- **⚡ Zero-Latency Protection**: Instantly terminates (`SIGKILL`) processes exceeding defined thresholds.
-- **🧠 Dynamic Baseline Calibration**: Automatically detects and offsets system-reserved memory for precise triggering.
-- **🔄 Systemd Integration**: Runs as a persistent user service with auto-restart capabilities.
-- **📊 Real-time Status**: Simple CLI tools to check status and logs.
+- Unified Memory support (system RAM fallback trigger when NVML totals are not supported)
+- Fast kill path (SIGKILL on Linux, SIGTERM on Windows)
+- Dynamic baseline calibration for unified memory platforms
+- systemd user service autostart on Linux
+- CLI scripts for start/stop/status
 
 ---
 
-## 🛠️ Installation
+## Installation
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/VRAM_shield.git
-cd VRAM_shield
+git clone https://github.com/jagones84/VRAM_Shield.git
+cd VRAM_Shield
 ```
 
 ### 2. Run the Installer
@@ -33,22 +33,25 @@ The included script sets up the virtual environment and installs dependencies au
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 Edit `config/config.yaml` to customize behavior.
 
+To keep machine-specific settings out of git, put overrides in `config/config.local.yaml` (it is loaded automatically if present).
+
 ```yaml
-threshold: 35000       # Memory limit in MB (e.g., 35 GB)
-mode: "SYSTEM"         # "SYSTEM" (Total Memory) or "PROCESS" (Per-Process)
-interval: 0.1          # Monitoring frequency in seconds
-autostart: true        # Enable auto-start on boot
-whitelist_pids:        # PIDs to ignore (e.g., system processes)
-  - 1
+threshold: 126000
+interval: 1.0
+gpu_index: 0
+dry_run: false
+mode: "PROCESS"
+autostart: false
+whitelist_pids: []
 ```
 
 ---
 
-## 🖥️ Usage
+## Usage
 
 ### Start / Restart
 ```bash
@@ -70,7 +73,7 @@ whitelist_pids:        # PIDs to ignore (e.g., system processes)
 
 ---
 
-## 🧪 Testing & Verification
+## Testing & Verification
 
 To verify the Shield's functionality, we recommend using **gpu-burn** to generate artificial VRAM load.
 
@@ -105,7 +108,7 @@ You can also run `gpu-burn` directly with a specific memory target to test the l
 
 ---
 
-## 🔧 Systemd Service (Auto-Start)
+## Systemd Service (Auto-Start)
 
 The Shield is designed to run as a **Systemd User Service**.
 
@@ -114,3 +117,16 @@ The Shield is designed to run as a **Systemd User Service**.
 - **Restart**: `systemctl --user restart vram_guard.service`
 
 *Note: The `run_guard.sh` script handles this automatically for you.*
+
+## Security & privacy
+
+- `.env` / `.env.*` are ignored by git (except `.env.example`)
+- `venv/`, logs (`*.log`) and PID files (`*.pid`) are ignored by git
+- `calibration_report*.txt` is ignored by git (machine-specific output)
+
+Before pushing, verify with:
+
+```bash
+git status
+git ls-files
+```

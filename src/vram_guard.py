@@ -139,6 +139,15 @@ def monitor_vram():
         
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
+    if config is None:
+        config = {}
+
+    local_config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "config.local.yaml")
+    if os.path.exists(local_config_path):
+        with open(local_config_path, 'r') as f:
+            local_config = yaml.safe_load(f) or {}
+        if isinstance(local_config, dict):
+            config.update(local_config)
         
     threshold = config.get('threshold', 126000)
     interval = config.get('interval', 1.0)

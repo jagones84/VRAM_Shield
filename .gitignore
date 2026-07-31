@@ -1,11 +1,32 @@
 # System & Logs
 *.log
 .vram_guard.pid
+*.pid
 venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
 
 # IDEs
 .DS_Store
 .idea/
 .vscode/
+
+.env
+.env.*
+!.env.example
+
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+calibration_report*.txt
+config/config.local.yaml
