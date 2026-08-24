@@ -1,32 +1,48 @@
-# System & Logs
-*.log
-.vram_guard.pid
-*.pid
-venv/
+# Python
 __pycache__/
-*.pyc
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-build/
-dist/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
 *.egg-info/
 
-# IDEs
-.DS_Store
-.idea/
+# Build artifacts
+tests/archivio/compare.fatbin
+tests/gpu_stress
+tests/cuda_alloc
+tests/stress_alloc
+tests/gpu_burn
+*.o
+*.a
+*.so
+
+# Outputs (CSV logs)
+outputs/*
+!outputs/.gitkeep
+
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
 
-.env
-.env.*
-!.env.example
+# Logs
+*.log
+nohup.out
+/tmp/*.log
 
-*.pem
-*.key
-*.p12
-*.pfx
-*.jks
-*.keystore
+# Backups / runtime artifacts
+*.bak
+*.bak.*
+.vram_guard.pid
+src/*.py.bak.*
 
-calibration_report*.txt
-config/config.local.yaml
+# OS
+Thumbs.db
+tests/archivio/cuda_alloc
+tests/archivio/gpu_burn
+tests/archivio/stress_alloc

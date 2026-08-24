@@ -1,7 +1,8 @@
 # Default VRAM Threshold in Megabytes (MB)
-# Example: 118 GB = 118000 MB (Leaving ~3GB safety margin for OS)
-threshold: 122000
-# threshold: 35000
+# GB10: 128 GB unified.
+# Test soglia trigger: quando Dashboard ~120 GB, psutil.used ~112 GB (scarto 8 GB).
+# Quindi threshold su psutil = 112000 -> trigger quando Dashboard ~120 GB.
+threshold: 112000
 
 # How often to check VRAM (in seconds)
 interval: 0.5
@@ -15,6 +16,15 @@ dry_run: false
 # Protected Process IDs - these will NEVER be killed
 whitelist_pids:
   - 1
+
+# Protected process names (substring match). Never killed even if they consume the most memory.
+# Add here long-running model servers, daemons, and critical services.
+whitelist_names:
+  - llama-server
+  - vram_guard
+  - systemd
+  - init
+  - earlyoom
 
 # Monitoring Mode
 #   PROCESS - Kills specific processes exceeding the total
