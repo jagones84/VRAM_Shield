@@ -326,6 +326,118 @@ as the literal string `N/A` so they don't get confused with real zeros.
 
 ---
 
+## Real-Time Crash Forensics: `crashwatch`
+
+`scripts/crashwatch.sh` is the **persistent, crash-surviving** variant of
+`monitor_realtime.py`. Use it when you want a continuous telemetry tape
+running on the machine — not tied to a specific test — so that *if* the box
+dies you have the last 1–2 seconds of GPU power, GPU temp, CPU temp, memory,
+top GPU process, and alerts written to disk before the lights go out.
+
+Differences vs. plain `monitor_realtime.py`:
+
+| | `monitor_realtime.py` | `crashwatch.sh` |
+|---|---|---|
+| Process supervision | foreground / `nohup` | systemd transient unit `crashwatch.service` (`--user`) |
+| Survives kill/restart | no | yes — `Restart=on-failure`, `RestartSec=3` |
+| File naming | `monitor_YYYYMMDD_HHMMSS.csv` | `crashwatch_YYYYMMDD_HHMM.csv` (HHMM, no overwrite after restart) |
+| Sample rate | 2 Hz default | 1 Hz (less disk I/O, longer tape) |
+| Write durability | line-buffered, no fsync | `f.flush()` + `os.fsync()` per row in the script |
+| Subcommands | argparse only | `start / stop / status / tail / stats / path / restart` |
+
+It is the recommended background monitor for **OpenClaw** and **Hermes**
+workloads (and any other long-running inference / training job on the box):
+one row per second, survives process crashes, log file lives in
+`outputs/crashwatch_*.csv`.
+
+### Quick start
+
+```bash
+# Avvia (idempotente: se gia' attivo, stampa lo stato e basta)
+./scripts/crashwatch.sh start
+
+# Stato + path del CSV attivo
+./scripts/crashwatch.sh status
+
+# Ultime 20 righe del CSV
+./scripts/crashwatch.sh tail
+
+# Statistiche (max/min/avg GPU temp, power, CPU temp) sul CSV attivo
+./scripts/crashwatch.sh stats
+
+# Ferma
+./scripts/crashwatch.sh stop
+
+# Restart (nuovo file, es. dopo cambio carico)
+./scripts/crashwatch.sh restart
+```
+
+### Prerequisite: user lingering
+
+`systemd-run --user` richiede che la sessione utente sia "lingering", altrimenti
+la unit muore quando termina il login grafico:
+
+```bash
+sudo loginctl enable-linger $USER
+# verifica
+loginctl show-user $USER | grep Linger
+# deve stampare Linger=yes
+```
+
+### Cosa controllare dopo un crash (in ordine)
+
+Una volta riavviato il DGX, il CSV piu' recente in `outputs/crashwatch_*.csv`
+contiene gli ultimi sample prima della morte. Controlla in ordine:
+
+1. `gpu_temp_c` >= 95 -> **thermal emergency GPU**
+2. `cpu_max_temp_c` >= 95 -> **thermal emergency CPU / LPDDR5x** (spesso la causa
+   su GB10, dove LPDDR5x vive sullo stesso SoC)
+3. `gpu_power_w` spike poi 0 -> **driver hang o power event**
+4. `oom_kill_total` aumentato -> kernel OOM-killer (non lo Shield, ma rivela
+   processi bugiardi)
+5. `driver_err_30s` > 0 -> errori del driver NVIDIA nei 30 s precedenti
+6. `dashboard_equiv_gb` (auto-computed) -> cosa avrebbe letto la Dashboard NVIDIA
+7. `alert_*` = 1 -> quale soglia e' stata superata per prima
+
+### Scope: OpenClaw, Hermes e qualunque carico
+
+`crashwatch` non fa ipotesi sul carico: legge solo da `nvidia-smi`,
+`/sys/class/thermal`, `psutil`, `/proc/vmstat`. Quindi va bene come baseline
+comune di telemetria per:
+
+- **OpenClaw** (gateway 18789 + adapter multipli)
+- **Hermes** (gateway 8642 + WebUI)
+- Render ComfyUI / WAN 2.2
+- Training / inferenza llama.cpp multi-istanza
+- Qualsiasi carico misto CPU+GPU dove vuoi la "scatola nera"
+
+### Esempio di analisi post-crash
+
+```bash
+# Identifica il CSV piu' recente
+./scripts/crashwatch.sh path
+# /home/jagones/Programs/VRAM_shield/outputs/crashwatch_20260909_2323.csv
+
+# Statistiche aggregate del tape
+./scripts/crashwatch.sh stats
+# samples  = 728
+# GPU temp  max 85.0 C  min 52.0 C  avg 69.0 C
+# GPU power max 94.61 W min 12.94 W avg 51.90 W
+# CPU temp  max 96.2 C  min 63.4 C  avg 82.1 C
+
+# Ultime 5 righe (cosa stava succedendo nell'ultimo secondo)
+tail -5 "$(./scripts/crashwatch.sh path)"
+# timestamp,epoch_ms,gpu_temp_c,gpu_power_w,...
+# 2026-09-09 23:35:36.725,...,79.0,80.85,...
+# 2026-09-09 23:35:37.725,...,81.0,73.49,...
+# 2026-09-09 23:35:38.725,...,79.0,80.85,...
+# 2026-09-09 23:35:39.725,...,81.0,73.49,...
+# 2026-09-09 23:35:40.725,...,84.0,81.74,...
+```
+
+---
+
+
 ## Architecture Notes: GB10 Unified Memory
 
 The DGX Spark has a single **Grace Blackwell GB10 SoC** with **128 GB of

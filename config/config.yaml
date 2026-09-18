@@ -2,11 +2,9 @@
 # GB10: 128 GB unified.
 # Test soglia trigger: quando Dashboard ~120 GB, psutil.used ~112 GB (scarto 8 GB).
 # Quindi threshold su psutil = 112000 -> trigger quando Dashboard ~120 GB.
-threshold: 118000
+threshold: 116000
 
 # How often to check VRAM (in seconds)
-# 5.0 s is the code default: the guard only needs to react to a runaway
-# allocation, and polling 10x faster costs ~10x the CPU for no real benefit.
 interval: 5.0
 
 # GPU Index to monitor (usually 0)
@@ -33,4 +31,4 @@ whitelist_names:
 mode: "SYSTEM"
 
 # Enable automatic startup on boot (Windows / Linux)
-autostart: true
+autostart: false
