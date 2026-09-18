@@ -1,0 +1,14 @@
+[Unit]
+Description=VRAM Shield crashwatch continuous telemetry
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/jagones/Programs/VRAM_shield
+ExecStart=/home/jagones/Programs/VRAM_shield/scripts/crashwatch_service.sh
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

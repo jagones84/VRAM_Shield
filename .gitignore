@@ -46,3 +46,10 @@ Thumbs.db
 tests/archivio/cuda_alloc
 tests/archivio/gpu_burn
 tests/archivio/stress_alloc
+
+# local artifacts (backups, logs, telemetry output)
+*.bak-*
+*.bak-cpufix-*
+output.log
+output.log.*
+outputs/
