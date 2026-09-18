@@ -327,6 +327,7 @@ def monitor_vram():
 
         while True:
             cycle_count += 1
+            cycle_start = time.time()
             try:
                 # 1. Get System Memory Stats (Critical for Unified Memory)
                 sys_mem = psutil.virtual_memory()
@@ -344,7 +345,6 @@ def monitor_vram():
                 if is_unified and sys_used_mb < quick_skip_threshold:
                     if cycle_count % 60 == 0:  # log every 5 minutes
                         log(f"OK: sys_used={sys_used_mb:.0f}MB (limit {threshold}MB) - {len(processes)} GPU procs tracked, idle")
-                    time.sleep(interval)
                     continue
 
                 # Check for memory spikes
@@ -460,8 +460,16 @@ def monitor_vram():
 
             except pynvml.NVMLError as err:
                 log(f"NVML Error: {err}")
-
-            time.sleep(interval)
+            finally:
+                # ALWAYS honour the sampling interval.
+                # A bare `continue` in the body (e.g. the SYSTEM + unified-memory
+                # branch) jumps straight back to the top of the loop and used to skip
+                # this sleep entirely, turning the poll loop into a busy spin: one CPU
+                # core pinned at 100% plus an unbounded log, whenever memory was above
+                # the quick-skip gate. try/finally makes the pacing unconditional.
+                _elapsed = time.time() - cycle_start
+                if _elapsed < interval:
+                    time.sleep(interval - _elapsed)
 
     except KeyboardInterrupt:
         log("Monitoring stopped.")

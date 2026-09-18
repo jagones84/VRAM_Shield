@@ -5,7 +5,9 @@
 threshold: 118000
 
 # How often to check VRAM (in seconds)
-interval: 0.5
+# 5.0 s is the code default: the guard only needs to react to a runaway
+# allocation, and polling 10x faster costs ~10x the CPU for no real benefit.
+interval: 5.0
 
 # GPU Index to monitor (usually 0)
 gpu_index: 0
